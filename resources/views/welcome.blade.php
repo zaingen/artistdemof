@@ -20,6 +20,38 @@
       -moz-border-radius: 0px;
       background-image: none;    
 }
+.ui-state-highlight { font-weight: bold; color: blue; }
+/* highlight results */
+.ui-autocomplete span.hl_results {
+    background-color: #ffff66;
+}
+ 
+/* loading - the AJAX indicator */
+.ui-autocomplete-loading {
+    /*background: white url('../img/ui-anim_basic_16x16.gif') right center no-repeat;*/
+}
+ 
+/* scroll results */
+.ui-autocomplete {
+    max-height: 250px;
+    overflow-y: auto;
+    /* prevent horizontal scrollbar */
+    overflow-x: hidden;
+    /* add padding for vertical scrollbar */
+    padding-right: 5px;
+}
+ 
+.ui-autocomplete li {
+    font-size: 16px;
+}
+ 
+/* IE 6 doesn't support max-height
+* we use height instead, but this forces the menu to always be this tall
+*/
+* html .ui-autocomplete {
+    height: 250px;
+}
+#loading-animation{display: none;}
 </style>
 
 
@@ -27,7 +59,7 @@
 @section('content')
 <div class="row">
         <div id="artist-search-form">
-            <h1>Search for an Artist</h1>
+            <h1>Search for an Artist <img src="<?php echo url('/').'/images/loading.png'; ?>" id="loading-animation" alt="loading image"></h1>
             <p>Type an artist name and click on "Search".</p>
             <form id="search-form">
                 <input type="text" id="artist" value="" class="form-control" placeholder="Type an Artist Name"/>
@@ -41,55 +73,34 @@
 @push('scripts')
 <script src="<?php echo url('/'); ?>/js/tags.js" ></script>
 <script type="text/javascript">
-
-    /*var $_searchQuery = $('#artist');
-    $.ui.autocomplete.prototype._renderItem = function (ul, item) {
-        var re = new RegExp($.trim(this.term.toLowerCase()));
-        var t = item.label.replace(re, "<span style='font-weight:600;color:#5C5C5C;'>" + $.trim(this.term.toLowerCase()) +
-            "</span>");
-        return $("<li></li>")
-            .data("item.autocomplete", item)
-            .append("<a>" + t + "</a>")
-            .appendTo(ul);
-    };
-
-    $_searchQuery.autocomplete({
-        source: availableTags,
-        select:   
-            function(event, ui) {  
-               $("input#artist").val(ui.item.value);
-        },
-        focus: function(event, ui) {
-            $("input#artist").val(ui.item.value);
-        },  
-        minLength: 3, 
-
-    });*/
-
-
-    /*$("#artist").keyup(function(e){
+$(document).ready(function(){
+    /// find template and compile it
+    //templateSource = document.getElementById('results-template').innerHTML;
+    //template = Handlebars.compile(templateSource);
+    resultsPlaceholder = document.getElementById('results');
+    playingCssClass = 'playing';
+    audioObject = null;
+    //console.log(templateSource);
+    //console.log(template);
+    $('#search-form').submit(function(e){
         e.preventDefault();
-        var artist =$('input#artist').val();
-        var code = e.keyCode || e.which;
-         if(code == 13 || code == 38 || code == 40 ) { //Enter keycode
-            $("input#artist").val(artist);
-        }else{
-            $("input#artist").val(""); 
-        }                
-    });*/
-    monkeyPatchAutocomplete();
+        searchArtistAlbums(document.getElementById('artist').value);
+    });
+    //monkeyPatchAutocomplete();
     $( "#artist" ).autocomplete({
         source: availableTags,  
         select:   
-            function(event, ui) {  
+            function(event, ui) { 
                $("input#artist").val(ui.item.value);
                $("#search-form").submit();
         },
         focus: function(event, ui) {
             $("input#artist").val(ui.item.value);
-        },  
+        },
         minLength: 3, 
     });
+
+});
     function monkeyPatchAutocomplete() {
       var oldFn = $.ui.autocomplete.prototype._renderItem;
 
@@ -105,16 +116,6 @@
               .appendTo( ul );
       };
     }
-    
-    /// find template and compile it
-        //templateSource = document.getElementById('results-template').innerHTML;
-        //template = Handlebars.compile(templateSource);
-        resultsPlaceholder = document.getElementById('results');
-        playingCssClass = 'playing';
-        audioObject = null;
-        //console.log(templateSource);
-        //console.log(template);
-
     var fetchTracks = function (albumId, callback) {
         $.ajax({
             url: 'https://api.spotify.com/v1/albums/' + albumId,
@@ -135,13 +136,38 @@
             }
         });
     };
+    function showhideloading(){
+        if($('#loading-animation' ).is(":visible")) {
+              $( '#loading-animation' ).toggle("display","none");
+        } else{
+              $( '#loading-animation' ).css("display","");
+        }
+        return true;
+    }
+    function removeDuplicates(originalArray, prop) {
+         var newArray = [];
+         var lookupObject  = {};
+
+         for(var i in originalArray) {
+            lookupObject[originalArray[i][prop]] = originalArray[i];
+         }
+
+         for(i in lookupObject) {
+             newArray.push(lookupObject[i]);
+         }
+          return newArray;
+    }
     function populateArtistData(data) {
+        console.log(data);
+
         /*var artist_wrap_html="";
         var album_wrap_html="";*/
         var final_html="";
-        console.log(data);
+        //var remove_duplicate=[];
+        //console.log(data);
         final_html+="<div class='container-fluid'>";
         if(data.artists.total ==0){
+            showhideloading();
             final_html+="<div class='message'> No Results Found .</div>";
             return final_html;
         }
@@ -200,10 +226,13 @@
                     artist_wrap_html+="</div>";
                 artist_wrap_html+="</div>"; // main artist row end 
                 //console.log(itemresults.albums.items);
+                var remove_duplicate=removeDuplicates(itemresults.albums.items,'name');
+                console.log(remove_duplicate);
                 var count=0;
                 var album_wrap_html="";
                 album_wrap_html+="<div class='main-artist-album-wrap'><h3>"+itemresults.name+" Albums</h3><div class='row'>";
-                $.each( itemresults.albums.items, function( aitems, a_itemresults ) {
+                $.each( remove_duplicate, function( aitems, a_itemresults ) {
+                //$.each( itemresults.albums.items, function( aitems, a_itemresults ) {
                     //console.log(itemresults.albums);
                     count++;
                     album_wrap_html+="<div class='col-md-4'>";
@@ -211,13 +240,15 @@
                         if(a_itemresults.images.length > 0) {
                             a_image=a_itemresults.images[0].url;
                         }
-                        album_wrap_html+="<div data-album-id='"+a_itemresults.id+"' class='album-image cover' style='background-image:url("+a_image+")'></div>";
+                        album_wrap_html+="<a class='album-image-link' href='<?php echo url('/');?>/albumtracks?artistid="+artist_id+"&albumid="+a_itemresults.id+"'>";
+                            album_wrap_html+="<div data-album-id='"+a_itemresults.id+"' class='album-image cover' style='background-image:url("+a_image+")'></div>";
+                        album_wrap_html+="</a>";
                         album_wrap_html+="<div class='album-detail'>";
                             album_wrap_html+="<span class='ablum-name'>";
                                 album_wrap_html+=a_itemresults.name;
                             album_wrap_html+="</span>";
                             album_wrap_html+="<span class='album-track'>";
-                                album_wrap_html+=" Total tracks ("+itemresults.albums.total+")";
+                                album_wrap_html+=" Total tracks ("+a_itemresults.total_track+")";
                             album_wrap_html+="</span>";
                             album_wrap_html+="<div class='ablum-track-lnk'>";
                                 album_wrap_html+="<a class='ablum-track' href='<?php echo url('/');?>/albumtracks?artistid="+artist_id+"&albumid="+a_itemresults.id+"'>";
@@ -252,6 +283,7 @@
                 final_html+="</ul>";
             final_html+="</div>"; // pagination div end
         final_html+="</div>"; // main fluid div end
+        showhideloading();        
         //console.log(final_html);
         return final_html;
     }
@@ -309,8 +341,10 @@
         //console.log(album_wrap_html);
         return album_wrap_html;
     }
-
+    
     function searchArtistAlbums(artist) {
+        showhideloading();
+        //$('#loading-animation').show(); 
         $.ajax({
             url: 'https://api.spotify.com/v1/search',
             data: {
@@ -336,16 +370,63 @@
                           url: 'https://api.spotify.com/v1/artists/'+singleartistdata.id+'/albums',
                           async:false,
                           success: function (response) {   
-                           singleartistdata.albums = response;
-                           artist_albums.push(singleartistdata);
+                               setTotalTrackofAlbum1(response);
+                               singleartistdata.albums = response;
+                               artist_albums.push(singleartistdata);
                           }
                          });
                 }
             });
         });
+        //setTotalTrackofAlbum(ar_al_data);
         return ar_al_data;
     }
+    function setTotalTrackofAlbum1(responce){
+        var album_tracks = [];
+        $.each( responce.items, function( singlealbum, singlealbums ) {
+            if(!(singlealbums.hasOwnProperty('total_track'))){
+                //console.log(singlealbums.href);
+                $.ajax({
+                    url: singlealbums.href,
+                    async:false,
+                    success: function (data) {   
+                        //console.log(data.tracks.total);
+                        singlealbums.total_track = data.tracks.total;
+                        album_tracks.push(singlealbums);
+                    }
+                });
+            }
+        });        
+        return responce;
+    }
 
+
+
+
+    function setTotalTrackofAlbum(ar_al_data){ // setting albums total tracks 
+        var album_tracks = [];
+        //console.log(ar_al_data);
+        $.each( ar_al_data, function( artists, artistslist ) {
+            $.each( artistslist.items, function( singleartist, singleartistdata ) {
+                //console.log(singleartistdata.albums.items);
+                $.each( singleartistdata.albums.items, function( singlealbum, singlealbums ) {
+                    if(!("total_track" in singlealbums)) {
+                        console.log(singlealbums.href);
+                        $.ajax({
+                            url: singlealbums.href,
+                            async:false,
+                            success: function (response) {   
+                                console.log(response.total);
+                                singlealbums.total_track = response.total;
+                                album_tracks.push(singlealbums);
+                            }
+                        });
+                    }                    
+                });
+            });
+        });        
+        return ar_al_data;            
+    }
     var getArtistAlbum=function(artistid){
         $.ajax({
             url: 'https://api.spotify.com/v1/artists/'+artistid+'/albums',
@@ -356,14 +437,6 @@
             }
         });
     };
-
-    $('#search-form').submit(function(e){
-        e.preventDefault();
-        searchArtistAlbums(document.getElementById('artist').value);
-
-    });
-
-
     /*results.addEventListener('click', function (e) {
         var target = e.target;
         if (target !== null && target.classList.contains('cover')) {

@@ -9,6 +9,7 @@
 
     <!-- Fonts -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:100,300,400,700">
+    <link rel="stylesheet" href="<?php echo url('/'); ?>/css/smoothness-ui.css" >
     <link rel="stylesheet" href="<?php echo url('/'); ?>/css/bootstrap.css" >
     <link rel="stylesheet" href="<?php echo url('/'); ?>/css/jquery-ui.css" >
     <?php /*

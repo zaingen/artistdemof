@@ -48,8 +48,7 @@ class HomeController extends Controller
     get the spotify album tracks
     */
     function getAlbumTracks() {
-        //$album_id=Input::get("albumid") ;
-        $album_id='0sNOF9WDwhWunNAHPD3Baj';
+        $album_id=Input::get("albumid") ;
         $artist_id=Input::get("artistid");
         $artist_end_point='/v1/artists/'.$artist_id;
         $artist_data=$this->callSimpleSpotify('https://api.spotify.com'.$artist_end_point);
